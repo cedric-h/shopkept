@@ -72,7 +72,7 @@ main {
     }
   }
 }
-`;
+`
 
 const main_js = `
 function durationStr(timestamp) {
@@ -125,4 +125,4 @@ requestAnimationFrame(function frame() {
                 x.textContent = gameclockStr(x.dateTime);
         })
 })
-`;
+`

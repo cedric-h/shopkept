@@ -27,15 +27,15 @@ func gaussianRandom(mean, stddev float64) float64 {
 }
 
 type Rcx struct {
-	html, css, js string
-    refreshSeconds uint
+	html, css, js  string
+	refreshSeconds uint
 }
 
 func (rcx *Rcx) refreshWhen(when time.Time) {
-    rcx.refreshSeconds = min(
-        rcx.refreshSeconds,
-        uint(math.Ceil(float64(when.Sub(time.Now())) / float64(time.Second))),
-    )
+	rcx.refreshSeconds = min(
+		rcx.refreshSeconds,
+		uint(math.Ceil(float64(when.Sub(time.Now()))/float64(time.Second))),
+	)
 }
 
 func (s *Session) StatusBar(rcx *Rcx) {
@@ -43,17 +43,17 @@ func (s *Session) StatusBar(rcx *Rcx) {
 
 	rcx.html += `<div class="side">`
 	rcx.html += fmt.Sprintf(
-        `<span>⚜️ %d</span>`,
-        s.Fleurs,
-    )
+		`<span>⚜️ %d</span>`,
+		s.Fleurs,
+	)
 	rcx.html += `<span class="subtle">/4k to descend to L2</span>`
 	rcx.html += `</div>`
 
 	rcx.html += `<div class="side right">`
 	rcx.html += fmt.Sprintf(
-        `<time data-format="gameclock" datetime="%s"></span>`,
-        s.DayStart.Format(time.RFC3339),
-    )
+		`<time data-format="gameclock" datetime="%s"></span>`,
+		s.DayStart.Format(time.RFC3339),
+	)
 	rcx.html += `<span class="subtle">day 1</span>`
 	rcx.html += `</div>`
 
@@ -81,58 +81,58 @@ func (s *Session) StatusBar(rcx *Rcx) {
 func (s *Session) BrewingContent(rcx *Rcx) {
 	rcx.html += `<div class="brew">`
 
-    for i, bru := range s.Bru {
-        stage := bru.BruStage()
+	for i, bru := range s.Bru {
+		stage := bru.BruStage()
 
-        var title, subtitle, icon string
-        switch stage {
-            case BruStage_Empty:
-                title = "EMPTY"
-                subtitle = "click here to bru"
-                icon = "🥽"
-            case BruStage_Brewing:
-                title = fmt.Sprintf(
-                    `<time datetime="%s" data-format="duration"></time> to go`,
-                    bru.Done.Format(time.RFC3339),
-                )
-                subtitle = "brewing ..."
-                icon = "🧪"+bru.Recipe.Out().Emoji()
-            case BruStage_Brewed:
-                icon = bru.Recipe.Out().Emoji()
-                title = "DONE"
-                subtitle = fmt.Sprintf(
-                    `done <time datetime="%s" data-format="duration"></time> ago`,
-                    bru.Done.Format(time.RFC3339),
-                )
-        }
+		var title, subtitle, icon string
+		switch stage {
+		case BruStage_Empty:
+			title = "EMPTY"
+			subtitle = "click here to bru"
+			icon = "🥽"
+		case BruStage_Brewing:
+			title = fmt.Sprintf(
+				`<time datetime="%s" data-format="duration"></time> to go`,
+				bru.Done.Format(time.RFC3339),
+			)
+			subtitle = "brewing ..."
+			icon = "🧪" + bru.Recipe.Out().Emoji()
+		case BruStage_Brewed:
+			icon = bru.Recipe.Out().Emoji()
+			title = "DONE"
+			subtitle = fmt.Sprintf(
+				`done <time datetime="%s" data-format="duration"></time> ago`,
+				bru.Done.Format(time.RFC3339),
+			)
+		}
 
-        href := ""
-        if stage == BruStage_Brewing {
-            rcx.refreshWhen(bru.Done.Add(-100*time.Millisecond))
-        }
-        if stage != BruStage_Brewing {
-            href = fmt.Sprintf(`href="/brew%d"`, i)
-        }
+		href := ""
+		if stage == BruStage_Brewing {
+			rcx.refreshWhen(bru.Done.Add(-100 * time.Millisecond))
+		}
+		if stage != BruStage_Brewing {
+			href = fmt.Sprintf(`href="/brew%d"`, i)
+		}
 
-        rcx.html += fmt.Sprintf(
-            `<a %s class="brew-entry">`,
-            href,
-        )
-        rcx.html += fmt.Sprintf(
-            `<div class="brew-icon">%s</div>`,
-            icon,
-        )
-        rcx.html += `<div class="brew-label">`
-        rcx.html += fmt.Sprintf(`<div>%s</div>`, title)
-        rcx.html += fmt.Sprintf(`<div class="subtle">%s</div>`, subtitle)
-        rcx.html += `</div>`
-        rcx.html += `</a>`
-    }
+		rcx.html += fmt.Sprintf(
+			`<a %s class="brew-entry">`,
+			href,
+		)
+		rcx.html += fmt.Sprintf(
+			`<div class="brew-icon">%s</div>`,
+			icon,
+		)
+		rcx.html += `<div class="brew-label">`
+		rcx.html += fmt.Sprintf(`<div>%s</div>`, title)
+		rcx.html += fmt.Sprintf(`<div class="subtle">%s</div>`, subtitle)
+		rcx.html += `</div>`
+		rcx.html += `</a>`
+	}
 
 	rcx.html += fmt.Sprintf(
-        `<a href="/brew%d" class="brew-entry">`,
-        len(s.Bru),
-    )
+		`<a href="/brew%d" class="brew-entry">`,
+		len(s.Bru),
+	)
 	rcx.html += `<div class="brew-icon">🚰</div>`
 	rcx.html += `<div class="brew-label">`
 	rcx.html += `<div>BUY ⚜️ 100</div>`
@@ -142,52 +142,52 @@ func (s *Session) BrewingContent(rcx *Rcx) {
 
 	rcx.html += `</div>` /* class="brew" */
 
-    if s.BruTab.Modal == BruModal_BrewWhat {
+	if s.BruTab.Modal == BruModal_BrewWhat {
 		rcx.html += `<div`
 		rcx.html += ` class="modal-wrapper"`
 		rcx.html += ` onclick="location.pathname='/brew-1'"`
 		rcx.html += `>`
 		rcx.html += `<div onclick="event.stopPropagation()" class="modal">`
-        rcx.html += `<div>what's brewing?</div>`
+		rcx.html += `<div>what's brewing?</div>`
 
-        for recipe := BruRecipe(1); recipe < BruRecipe_COUNT; recipe++ {
-            out := recipe.Out()
-            in, inCount, inTime := recipe.In()
+		for recipe := BruRecipe(1); recipe < BruRecipe_COUNT; recipe++ {
+			out := recipe.Out()
+			in, inCount, inTime := recipe.In()
 
-            disabled := ""
-            if !s.HasItems(in, inCount) {
-                disabled = "disabled"
-            }
+			disabled := ""
+			if !s.HasItems(in, inCount) {
+				disabled = "disabled"
+			}
 
-            rcx.html += fmt.Sprintf(
-                `<a %s href="/brewrecipe%d" class="brew-opt">`,
-                disabled,
-                recipe,
-            )
-            rcx.html += fmt.Sprintf(
-                `<div class="title"> <b>%s %s </b> </div>`,
-                out.Emoji(),
-                out.Title(),
-            )
-            rcx.html += `<div class="subtle"> ingredients: </div>`
-            rcx.html += fmt.Sprintf(
-                `<div %s class="ingredient"> <b>x%d</b> %s %s </div>`,
-                disabled,
-                inCount,
-                in.Title(),
-                in.Emoji(),
-            )
-            rcx.html += fmt.Sprintf(
-                `<div class="ingredient"> takes %s ⏰ </div>`,
-                inTime.String(),
-            )
-            rcx.html += `</a>`
-        }
+			rcx.html += fmt.Sprintf(
+				`<a %s href="/brewrecipe%d" class="brew-opt">`,
+				disabled,
+				recipe,
+			)
+			rcx.html += fmt.Sprintf(
+				`<div class="title"> <b>%s %s </b> </div>`,
+				out.Emoji(),
+				out.Title(),
+			)
+			rcx.html += `<div class="subtle"> ingredients: </div>`
+			rcx.html += fmt.Sprintf(
+				`<div %s class="ingredient"> <b>x%d</b> %s %s </div>`,
+				disabled,
+				inCount,
+				in.Title(),
+				in.Emoji(),
+			)
+			rcx.html += fmt.Sprintf(
+				`<div class="ingredient"> takes %s ⏰ </div>`,
+				inTime.String(),
+			)
+			rcx.html += `</a>`
+		}
 
-        rcx.html += `</div>`
-        rcx.html += `</div>`
+		rcx.html += `</div>`
+		rcx.html += `</div>`
 
-        rcx.css += `
+		rcx.css += `
             .modal {
                 .brew-opt {
                     font-size: 0.8rem;
@@ -219,16 +219,16 @@ func (s *Session) BrewingContent(rcx *Rcx) {
                 align-items: center;
             }
         `
-    }
+	}
 
-    if s.BruTab.Modal == BruModal_Done {
+	if s.BruTab.Modal == BruModal_Done {
 		rcx.html += `<div`
 		rcx.html += ` class="modal-wrapper"`
 		rcx.html += ` onclick="location.pathname='/brew-1'"`
 		rcx.html += `>`
 		rcx.html += `<div onclick="event.stopPropagation()" class="modal">`
 
-        item := s.Bru[s.BruTab.SelectedBruIdx].Recipe.Out()
+		item := s.Bru[s.BruTab.SelectedBruIdx].Recipe.Out()
 
 		rcx.html += `<div>u bru'd u a</div>`
 		rcx.html += fmt.Sprintf(`<div class="title">%s</div>`, item.Title())
@@ -236,10 +236,10 @@ func (s *Session) BrewingContent(rcx *Rcx) {
 		rcx.html += fmt.Sprintf(`<i class="flavor">%s</i>`, item.Flavor())
 		rcx.html += `<a class="action" href="/brew-1">yay</a>`
 
-        rcx.html += `</div>`
-        rcx.html += `</div>`
+		rcx.html += `</div>`
+		rcx.html += `</div>`
 
-        rcx.css += `
+		rcx.css += `
             .modal {
                 display: flex;
                 gap: 0.6rem;
@@ -271,7 +271,7 @@ func (s *Session) BrewingContent(rcx *Rcx) {
                 }
             }
         `
-    }
+	}
 
 	rcx.css += `
         .brew {
@@ -485,69 +485,72 @@ func (s *Session) InventoryContent(rcx *Rcx, invAction InventoryContentAction) {
 }
 
 type Bru struct {
-    Recipe BruRecipe
-    Done time.Time
+	Recipe BruRecipe
+	Done   time.Time
 }
 
 type BruRecipe uint
+
 const (
-    BruRecipe_NONE BruRecipe = iota
-    BruRecipe_HealthPotion
-    BruRecipe_SkeletonKey
-    BruRecipe_COUNT
+	BruRecipe_NONE BruRecipe = iota
+	BruRecipe_HealthPotion
+	BruRecipe_SkeletonKey
+	BruRecipe_COUNT
 )
 
 func (recipe BruRecipe) Out() Item {
-    switch recipe {
-        case BruRecipe_HealthPotion:
-            return Item_HealthPotion
-        case BruRecipe_SkeletonKey:
-            return Item_SkeletonKey
-        case BruRecipe_COUNT:
-            return Item_None
-    }
-    return Item_None
+	switch recipe {
+	case BruRecipe_HealthPotion:
+		return Item_HealthPotion
+	case BruRecipe_SkeletonKey:
+		return Item_SkeletonKey
+	case BruRecipe_COUNT:
+		return Item_None
+	}
+	return Item_None
 }
 
 func (recipe BruRecipe) In() (Item, uint, time.Duration) {
-    switch recipe {
-        case BruRecipe_HealthPotion:
-            return Item_FlyAgaric, 5, 30*time.Second
-        case BruRecipe_SkeletonKey:
-            return Item_Bone, 25, time.Minute
-        case BruRecipe_COUNT, BruRecipe_NONE:
-            return Item_None, 0, time.Second
-    }
-    return Item_None, 0, time.Second
+	switch recipe {
+	case BruRecipe_HealthPotion:
+		return Item_FlyAgaric, 5, 30 * time.Second
+	case BruRecipe_SkeletonKey:
+		return Item_Bone, 25, time.Minute
+	case BruRecipe_COUNT, BruRecipe_NONE:
+		return Item_None, 0, time.Second
+	}
+	return Item_None, 0, time.Second
 }
 
 type BruStage uint
+
 const (
-    BruStage_Brewing BruStage = iota
-    BruStage_Brewed
-    BruStage_Empty
+	BruStage_Brewing BruStage = iota
+	BruStage_Brewed
+	BruStage_Empty
 )
 
 type BruModal uint
+
 const (
-    BruModal_None BruModal = iota
-    BruModal_BrewWhat
-    BruModal_Done
+	BruModal_None BruModal = iota
+	BruModal_BrewWhat
+	BruModal_Done
 )
 
 func (bru Bru) BruStage() BruStage {
-    if bru.Recipe == BruRecipe_NONE {
-        return BruStage_Empty
-    } else if bru.Done.Before(time.Now()) {
-        return BruStage_Brewed
-    } else {
-        return BruStage_Brewing
-    }
+	if bru.Recipe == BruRecipe_NONE {
+		return BruStage_Empty
+	} else if bru.Done.Before(time.Now()) {
+		return BruStage_Brewed
+	} else {
+		return BruStage_Brewing
+	}
 }
 
 type Session struct {
-    DayStart time.Time
-    Fleurs uint
+	DayStart time.Time
+	Fleurs   uint
 
 	Inv map[Item]uint
 	Bru []Bru
@@ -556,17 +559,17 @@ type Session struct {
 	InvTab struct {
 		SelectedItem Item
 	}
-    BruTab struct {
-        Modal BruModal
-        SelectedBruIdx int
-    }
+	BruTab struct {
+		Modal          BruModal
+		SelectedBruIdx int
+	}
 }
 
 func NewSession() *Session {
 	return &Session{
-        DayStart: time.Now(),
-        Fleurs: 100,
-		Tab: SessionTab_Inventory,
+		DayStart: time.Now(),
+		Fleurs:   100,
+		Tab:      SessionTab_Inventory,
 
 		Inv: map[Item]uint{
 			Item_MonsterCrate: 5,
@@ -574,9 +577,9 @@ func NewSession() *Session {
 			Item_Bone:         2,
 		},
 
-        Bru: []Bru{
-            {},
-        },
+		Bru: []Bru{
+			{},
+		},
 	}
 }
 
@@ -695,22 +698,22 @@ func (s *Session) GiveItems(item Item, count uint) {
 }
 
 func (s *Session) TakeFleurs(count uint) bool {
-    if s.Fleurs < count {
-        return false
-    }
-    s.Fleurs -= count
-    return true
+	if s.Fleurs < count {
+		return false
+	}
+	s.Fleurs -= count
+	return true
 }
 
 func (s *Session) HasItems(item Item, takeCount uint) bool {
 	count, has := s.Inv[item]
-    return has && count >= takeCount
+	return has && count >= takeCount
 }
 
 func (s *Session) TakeItems(item Item, takeCount uint) bool {
-    if !s.HasItems(item, takeCount) {
-        return false
-    }
+	if !s.HasItems(item, takeCount) {
+		return false
+	}
 
 	s.Inv[item] -= takeCount
 
@@ -766,22 +769,22 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	rcx := &Rcx{
-		css: main_css,
-        js: main_js,
-        refreshSeconds: 9999999,
+		css:            main_css,
+		js:             main_js,
+		refreshSeconds: 9999999,
 	}
 
-    /* TabBar controller */
-    var tab SessionTab = 0
-    n, err := fmt.Sscanf(path, "/tab%d", &tab)
-    if n > 0 && err == nil {
-        sesh.Tab = tab
-    }
-    topBars := func() {
-        sesh.StatusBar(rcx)
+	/* TabBar controller */
+	var tab SessionTab = 0
+	n, err := fmt.Sscanf(path, "/tab%d", &tab)
+	if n > 0 && err == nil {
+		sesh.Tab = tab
+	}
+	topBars := func() {
+		sesh.StatusBar(rcx)
 
-        sesh.TabBar(rcx)
-    }
+		sesh.TabBar(rcx)
+	}
 
 	switch sesh.Tab {
 
@@ -816,73 +819,73 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-        topBars()
+		topBars()
 		sesh.InventoryContent(rcx, action)
 
 	case SessionTab_Brewing:
 
-        func () {
-            var brewIdx int = 0
-            n, err := fmt.Sscanf(path, "/brew%d", &brewIdx)
-            if n == 0 || err != nil {
-                return
-            }
+		func() {
+			var brewIdx int = 0
+			n, err := fmt.Sscanf(path, "/brew%d", &brewIdx)
+			if n == 0 || err != nil {
+				return
+			}
 
-            if brewIdx < 0 {
-                if sesh.BruTab.Modal == BruModal_Done {
-                    bru := sesh.Bru[sesh.BruTab.SelectedBruIdx]
-                    sesh.GiveItems(bru.Recipe.Out(), 1)
-                    sesh.Bru[sesh.BruTab.SelectedBruIdx] = Bru{}
-                }
+			if brewIdx < 0 {
+				if sesh.BruTab.Modal == BruModal_Done {
+					bru := sesh.Bru[sesh.BruTab.SelectedBruIdx]
+					sesh.GiveItems(bru.Recipe.Out(), 1)
+					sesh.Bru[sesh.BruTab.SelectedBruIdx] = Bru{}
+				}
 
-                sesh.BruTab.Modal = BruModal_None
-                return
-            }
+				sesh.BruTab.Modal = BruModal_None
+				return
+			}
 
-            if brewIdx >= len(sesh.Bru) {
-                if sesh.TakeFleurs(100) {
-                    sesh.Bru = append(sesh.Bru, Bru{})
-                }
-                return
-            }
+			if brewIdx >= len(sesh.Bru) {
+				if sesh.TakeFleurs(100) {
+					sesh.Bru = append(sesh.Bru, Bru{})
+				}
+				return
+			}
 
-            bru := sesh.Bru[brewIdx]
+			bru := sesh.Bru[brewIdx]
 
-            switch bru.BruStage() {
-                case BruStage_Brewed:
-                    sesh.BruTab.Modal = BruModal_Done
-                    sesh.BruTab.SelectedBruIdx = brewIdx
-                case BruStage_Brewing:
-                    /* no action */
-                case BruStage_Empty:
-                    sesh.BruTab.Modal = BruModal_BrewWhat
-                    sesh.BruTab.SelectedBruIdx = brewIdx
-            }
-        }()
+			switch bru.BruStage() {
+			case BruStage_Brewed:
+				sesh.BruTab.Modal = BruModal_Done
+				sesh.BruTab.SelectedBruIdx = brewIdx
+			case BruStage_Brewing:
+				/* no action */
+			case BruStage_Empty:
+				sesh.BruTab.Modal = BruModal_BrewWhat
+				sesh.BruTab.SelectedBruIdx = brewIdx
+			}
+		}()
 
-        func () {
-            var recipeIdx int = 0
-            n, err := fmt.Sscanf(path, "/brewrecipe%d", &recipeIdx)
-            if n == 0 || err != nil {
-                return
-            }
+		func() {
+			var recipeIdx int = 0
+			n, err := fmt.Sscanf(path, "/brewrecipe%d", &recipeIdx)
+			if n == 0 || err != nil {
+				return
+			}
 
-            if recipeIdx >= int(BruRecipe_COUNT) {
-                return
-            }
+			if recipeIdx >= int(BruRecipe_COUNT) {
+				return
+			}
 
-            recipe := BruRecipe(recipeIdx)
-            in, inCount, inTime := recipe.In()
-            if sesh.TakeItems(in, inCount) {
-                sesh.Bru[sesh.BruTab.SelectedBruIdx] = Bru{
-                    Recipe: recipe,
-                    Done: time.Now().Add(inTime),
-                }
-                sesh.BruTab.Modal = BruModal_None
-            }
-        }()
+			recipe := BruRecipe(recipeIdx)
+			in, inCount, inTime := recipe.In()
+			if sesh.TakeItems(in, inCount) {
+				sesh.Bru[sesh.BruTab.SelectedBruIdx] = Bru{
+					Recipe: recipe,
+					Done:   time.Now().Add(inTime),
+				}
+				sesh.BruTab.Modal = BruModal_None
+			}
+		}()
 
-        topBars()
+		topBars()
 		sesh.BrewingContent(rcx)
 	}
 
@@ -911,7 +914,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 </html>
     `, rcx.css, rcx.js, rcx.html)
 
-    rw.Header().Set("Refresh", fmt.Sprintf("%d", rcx.refreshSeconds))
+	rw.Header().Set("Refresh", fmt.Sprintf("%d", rcx.refreshSeconds))
 
 	rw.Write([]byte(doc))
 }

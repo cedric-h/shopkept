@@ -29,6 +29,7 @@ document, body {
 main {
   aspect-ratio: 9/16;
   border: 0.1rem solid var(--fg);
+  border-radius: 0.3rem;
   overflow: hidden;
   position: absolute;
   inset: 0;

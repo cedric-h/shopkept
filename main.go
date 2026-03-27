@@ -1,3 +1,4 @@
+// vim: noexpandtab
 package main
 
 import (
@@ -17,7 +18,7 @@ func gaussianRandom(mean, stddev float64) float64 {
 	u1 := rand.Float64()
 	u2 := rand.Float64()
 
-	// Avoid log(0)
+	/* avoid log(0) */
 	if u1 == 0 {
 		u1 = math.SmallestNonzeroFloat64
 	}
@@ -76,6 +77,229 @@ func (s *Session) StatusBar(rcx *Rcx) {
             }
         }
     `
+}
+
+func (tradeable Tradeable) Emoji() string {
+	switch tradeable.Kind {
+		case TradeableKind_Item:
+			return tradeable.Item.Emoji()
+		case TradeableKind_Money:
+			return "⚜️"
+	}
+	return "wtf"
+}
+
+func (tradeable Tradeable) Flavor() string {
+	switch tradeable.Kind {
+		case TradeableKind_Item:
+			return tradeable.Item.Flavor()
+		case TradeableKind_Money:
+			return `golden fleurs! useful for buying things or ` +
+				`descending deeper into the dungeon`
+	}
+	return "wtf"
+}
+
+
+func (s *Session) TradeOfferModal(rcx *Rcx) {
+	trade := s.Trades[0]
+
+	rcx.html += `<div`
+	rcx.html += ` class="modal-wrapper"`
+	rcx.html += ` onclick="location.pathname='/tradeaction0'"`
+	rcx.html += `>`
+	rcx.html += `<div onclick="event.stopPropagation()" class="modal trade-modal">`
+
+	rcx.html += `<div class="trade-top">`
+	{
+		rcx.html += `<div class="trade-details">`
+
+		rcx.html += `<div class="offer theirs">`
+		rcx.html += `<div>YOU GIVE</div>`
+		for _, t := range trade.YouGive {
+			rcx.html += fmt.Sprintf(
+				`<div>- %s x%d </div>`,
+				t.Emoji(),
+				t.Quantity,
+			)
+		}
+		rcx.html += `</div>`
+
+		rcx.html += `<div class="offer yours">`
+		rcx.html += `<div>YOU TAKE</div>`
+		for _, t := range trade.YouTake {
+			rcx.html += fmt.Sprintf(
+				`<div>+ %s x%d </div>`,
+				t.Emoji(),
+				t.Quantity,
+			)
+		}
+		rcx.html += `</div>`
+
+		rcx.html += `</div>`
+
+		rcx.css += `
+			.trade-details {
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				gap: 1rem;
+
+				.offer {
+					display: flex;
+					flex-direction: column;
+					align-items: center;
+
+					&.theirs { color: hsl(0, 100%, 80%); }
+					&.yours { color: hsl(90, 100%, 80%); }
+				}
+			}
+		`
+	}
+
+	{
+		rcx.html += `<div class="trade-right-column">`
+
+		rcx.html += `<div class="clock">⏰</div>`
+		rcx.html += `<div>🤺</div>`
+
+		rcx.html += `</div>`
+
+		secondsIn := time.Now().Sub(trade.StartsAt) / time.Second
+		duration := trade.EndsAt.Sub(trade.StartsAt) / time.Second
+		rcx.refreshWhen(trade.EndsAt)
+
+		growAnimation := fmt.Sprintf(
+			`%ds ease-out -%ds clock-grow forwards`,
+			duration,
+			secondsIn,
+		)
+
+		flashAnimation := fmt.Sprintf(
+			`0.5s linear %ds infinite alternate clock-flash;`,
+			trade.EndsAt.Add(-3 * time.Second).Sub(time.Now()) / time.Second,
+		)
+
+		rcx.css += `
+			@keyframes clock-grow {
+				from { clip-path: circle(20% at 50% -10%); opacity: 1; }
+				to { clip-path: circle(60% at 50% 50%); opacity: 1; }
+			}
+			@keyframes clock-shake {
+				from { transform: rotate(-15deg); }
+				to { transform: rotate(15deg); }
+			}
+			@keyframes clock-flash {
+				from { opacity: 1; }
+				35% { opacity: 1; }
+				50% { opacity: 0.5; }
+				65% { opacity: 1; }
+				to { opacity: 1; }
+			}
+			.trade-right-column {
+				.clock {
+					position: relative;
+					animation:
+						0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite alternate clock-shake,
+						` + flashAnimation + `
+					&::after {
+						filter: grayscale(1);
+						animation: ` + growAnimation + `;
+						position: absolute;
+						top: 0;
+						bottom: 0;
+						left: 0;
+						right: 0;
+						content: '⏰';
+					}
+				}
+				display: flex;
+				flex-direction: column;
+				font-size: 2.5rem;
+				gap: 0.5rem;
+			}
+		`
+	}
+	rcx.html += `</div>` //  class="trade-top"
+
+	if len(trade.YouTake) > 0 {
+		rcx.html += `<i class="flavor">` + trade.YouTake[0].Flavor() + `</i>`
+	}
+
+	rcx.html += `<div class="trade-options">`
+	rcx.html += `<a class="no" href="/tradeaction0">no</a>`
+	attrs := `href="/tradeaction1"`
+	for _, t := range trade.YouGive {
+		if !s.HasTradeable(t) {
+			attrs = "disabled"
+			break
+		}
+	}
+	rcx.html += fmt.Sprintf(
+		`<a class="yes" %s>yes</a>`,
+		attrs,
+	)
+	rcx.html += `</div>`
+
+	rcx.html += `</div>`
+	rcx.html += `</div>`
+
+	rcx.css += `
+		.trade-modal {
+			display: flex;
+			flex-direction: column;
+			gap: 1rem;
+
+			.trade-top {
+				display: flex;
+				flex-direction: row;
+				justify-content: space-around;
+				width: 100%;
+			}
+
+			.flavor {
+				padding: 0.0rem 0.8rem 0.0rem 0.8rem;
+				margin-bottom: 0.4rem;
+				font-size: 0.5rem;
+				color: gray;
+				text-align: center;
+			}
+
+			.trade-options {
+				display: flex;
+				flex-direction: row;
+				justify-content: space-around;
+				padding-left: 0.4rem;
+				padding-right: 0.4rem;
+				gap: 0.6rem;
+
+				a {
+					flex: 1;
+					text-align: center;
+					padding: 0.2rem 0.6rem 0.2rem 0.6rem;
+					border: 0.1rem solid var(--fg);
+					border-radius: 0.3rem;
+					&.yes:not([disabled]) {
+						color: hsl(209deg 85.57% 61.96%);
+						background-color: hsl(209deg 85.57% 61.96% / 20%);
+						&:hover {
+							background-color: hsl(209deg 85.57% 61.96% / 60%);
+							color: black;
+						}
+					}
+					&.no {
+						color: hsl(0deg 85.57% 61.96%);
+						background-color: hsla(0deg 85.57% 61.96% / 20%);
+						&:hover {
+							background-color: hsl(0deg 85.57% 61.96% / 60%);
+							color: black;
+						}
+					}
+				}
+			}
+		}
+	`;
+
 }
 
 func (s *Session) BrewingContent(rcx *Rcx) {
@@ -493,15 +717,15 @@ type BruRecipe uint
 
 const (
 	BruRecipe_NONE BruRecipe = iota
-	BruRecipe_HealthPotion
+	BruRecipe_HealthBoba
 	BruRecipe_SkeletonKey
 	BruRecipe_COUNT
 )
 
 func (recipe BruRecipe) Out() Item {
 	switch recipe {
-	case BruRecipe_HealthPotion:
-		return Item_HealthPotion
+	case BruRecipe_HealthBoba:
+		return Item_HealthBoba
 	case BruRecipe_SkeletonKey:
 		return Item_SkeletonKey
 	case BruRecipe_COUNT:
@@ -512,7 +736,7 @@ func (recipe BruRecipe) Out() Item {
 
 func (recipe BruRecipe) In() (Item, uint, time.Duration) {
 	switch recipe {
-	case BruRecipe_HealthPotion:
+	case BruRecipe_HealthBoba:
 		return Item_FlyAgaric, 5, 30 * time.Second
 	case BruRecipe_SkeletonKey:
 		return Item_Bone, 25, time.Minute
@@ -548,9 +772,27 @@ func (bru Bru) BruStage() BruStage {
 	}
 }
 
+type TradeableKind uint
+const (
+	TradeableKind_Money TradeableKind = iota
+	TradeableKind_Item 
+)
+type Tradeable struct {
+	Kind TradeableKind
+	Item Item
+	Quantity uint
+}
+
+type Trade struct {
+	EndsAt, StartsAt time.Time
+	YouGive []Tradeable
+	YouTake []Tradeable
+}
+
 type Session struct {
 	DayStart time.Time
 	Fleurs   uint
+	Trades []Trade
 
 	Inv map[Item]uint
 	Bru []Bru
@@ -575,10 +817,48 @@ func NewSession() *Session {
 			Item_MonsterCrate: 5,
 			Item_FlyAgaric:    1,
 			Item_Bone:         2,
+			Item_HealthBoba:   1,
 		},
 
 		Bru: []Bru{
 			{},
+		},
+
+		Trades: []Trade{
+			{
+				EndsAt: time.Now().Add(time.Second * 10),
+				StartsAt: time.Now(),
+				YouGive: []Tradeable {
+					{
+						Kind: TradeableKind_Money,
+						Quantity: 5,
+					},
+				},
+				YouTake: []Tradeable {
+					{
+						Kind: TradeableKind_Item,
+						Item: Item_MonsterCrate,
+						Quantity: 1,
+					},
+				},
+			},
+			{
+				EndsAt: time.Now().Add(time.Second * 60),
+				StartsAt: time.Now().Add(time.Second * 50),
+				YouGive: []Tradeable {
+					{
+						Kind: TradeableKind_Item,
+						Item: Item_HealthBoba,
+						Quantity: 1,
+					},
+				},
+				YouTake: []Tradeable {
+					{
+						Kind: TradeableKind_Money,
+						Quantity: 15,
+					},
+				},
+			},
 		},
 	}
 }
@@ -599,7 +879,7 @@ const (
 	Item_FlyAgaric
 	Item_MonsterCrate
 	Item_AncientCrate
-	Item_HealthPotion
+	Item_HealthBoba
 	Item_SkeletonKey
 )
 
@@ -615,7 +895,7 @@ func (item Item) Emoji() string {
 		return "📦"
 	case Item_AncientCrate:
 		return "🔒"
-	case Item_HealthPotion:
+	case Item_HealthBoba:
 		return "🧋"
 	case Item_SkeletonKey:
 		return "🗝️"
@@ -635,7 +915,7 @@ func (item Item) Title() string {
 		return "Monster Crate"
 	case Item_AncientCrate:
 		return "Ancient Crate"
-	case Item_HealthPotion:
+	case Item_HealthBoba:
 		return "Health Boba"
 	case Item_SkeletonKey:
 		return "Skeleton Key"
@@ -674,7 +954,7 @@ func (item Item) Flavor() string {
 		return "a spooky box! could contain cool stuff. " +
 			"opened with skeleton keys!"
 
-	case Item_HealthPotion:
+	case Item_HealthBoba:
 		return "a healthy concoction made from mushrooms. adventurers love " +
 			"this stuff!"
 
@@ -722,6 +1002,34 @@ func (s *Session) TakeItems(item Item, takeCount uint) bool {
 	}
 
 	return true
+}
+
+func (sesh *Session) HasTradeable(t Tradeable) bool {
+	switch t.Kind {
+		case TradeableKind_Money:
+			return sesh.Fleurs >= t.Quantity
+		case TradeableKind_Item:
+			return sesh.HasItems(t.Item, t.Quantity)
+	}
+	return false
+}
+
+func (sesh *Session) TakeTradeable(t Tradeable) {
+	switch t.Kind {
+		case TradeableKind_Money:
+			sesh.TakeFleurs(t.Quantity)
+		case TradeableKind_Item:
+			sesh.TakeItems(t.Item, t.Quantity)
+	}
+}
+
+func (sesh *Session) GiveTradeable(t Tradeable) {
+	switch t.Kind {
+		case TradeableKind_Money:
+			sesh.Fleurs += t.Quantity
+		case TradeableKind_Item:
+			sesh.GiveItems(t.Item, t.Quantity)
+	}
 }
 
 type Handler struct {
@@ -772,6 +1080,36 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		css:            main_css,
 		js:             main_js,
 		refreshSeconds: 9999999,
+	}
+
+	/* TradeOfferModal controller */
+	if len(sesh.Trades) > 0 {
+		trade := sesh.Trades[0]
+		if time.Now().After(trade.StartsAt) && time.Now().Before(trade.EndsAt) {
+				
+			if path == "/tradeaction0" {
+				sesh.Trades = sesh.Trades[1:]
+			} else if path == "/tradeaction1" {
+
+				func () {
+					for _, t := range trade.YouGive {
+						if !sesh.HasTradeable(t) {
+							return
+						}
+					}
+
+					for _, t := range trade.YouGive {
+						sesh.TakeTradeable(t)
+					}
+
+					for _, t := range trade.YouTake {
+						sesh.GiveTradeable(t)
+					}
+
+					sesh.Trades = sesh.Trades[1:]
+				}()
+			}
+		}
 	}
 
 	/* TabBar controller */
@@ -887,6 +1225,13 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 		topBars()
 		sesh.BrewingContent(rcx)
+	}
+
+	if len(sesh.Trades) > 0 {
+		trade := sesh.Trades[0]
+		if time.Now().After(trade.StartsAt) && time.Now().Before(trade.EndsAt) {
+			sesh.TradeOfferModal(rcx)
+		}
 	}
 
 	doc := fmt.Sprintf(`

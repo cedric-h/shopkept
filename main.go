@@ -815,10 +815,8 @@ func NewSession() *Session {
 		Tab:      SessionTab_Inventory,
 
 		Inv: map[Item]uint{
-			Item_MonsterCrate: 5,
 			Item_FlyAgaric:    1,
 			Item_Bone:         2,
-			Item_HealthBoba:   1,
 		},
 
 		Bru: []Bru{
@@ -839,7 +837,7 @@ func NewSession() *Session {
 					{
 						Kind:     TradeableKind_Item,
 						Item:     Item_MonsterCrate,
-						Quantity: 1,
+						Quantity: 5,
 					},
 				},
 			},
@@ -856,7 +854,7 @@ func NewSession() *Session {
 				YouTake: []Tradeable{
 					{
 						Kind:     TradeableKind_Money,
-						Quantity: 15,
+						Quantity: 25,
 					},
 				},
 			},
@@ -1232,6 +1230,8 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		trade := sesh.Trades[0]
 		if time.Now().After(trade.StartsAt) && time.Now().Before(trade.EndsAt) {
 			sesh.TradeOfferModal(rcx)
+		} else {
+			rcx.refreshWhen(trade.StartsAt)
 		}
 	}
 

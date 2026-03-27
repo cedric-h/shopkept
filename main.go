@@ -81,25 +81,24 @@ func (s *Session) StatusBar(rcx *Rcx) {
 
 func (tradeable Tradeable) Emoji() string {
 	switch tradeable.Kind {
-		case TradeableKind_Item:
-			return tradeable.Item.Emoji()
-		case TradeableKind_Money:
-			return "⚜️"
+	case TradeableKind_Item:
+		return tradeable.Item.Emoji()
+	case TradeableKind_Money:
+		return "⚜️"
 	}
 	return "wtf"
 }
 
 func (tradeable Tradeable) Flavor() string {
 	switch tradeable.Kind {
-		case TradeableKind_Item:
-			return tradeable.Item.Flavor()
-		case TradeableKind_Money:
-			return `golden fleurs! useful for buying things or ` +
-				`descending deeper into the dungeon`
+	case TradeableKind_Item:
+		return tradeable.Item.Flavor()
+	case TradeableKind_Money:
+		return `golden fleurs! useful for buying things or ` +
+			`descending deeper into the dungeon`
 	}
 	return "wtf"
 }
-
 
 func (s *Session) TradeOfferModal(rcx *Rcx) {
 	trade := s.Trades[0]
@@ -177,7 +176,7 @@ func (s *Session) TradeOfferModal(rcx *Rcx) {
 
 		flashAnimation := fmt.Sprintf(
 			`0.5s linear %ds infinite alternate clock-flash;`,
-			trade.EndsAt.Add(-3 * time.Second).Sub(time.Now()) / time.Second,
+			trade.EndsAt.Add(-3*time.Second).Sub(time.Now())/time.Second,
 		)
 
 		rcx.css += `
@@ -298,7 +297,7 @@ func (s *Session) TradeOfferModal(rcx *Rcx) {
 				}
 			}
 		}
-	`;
+	`
 
 }
 
@@ -773,26 +772,28 @@ func (bru Bru) BruStage() BruStage {
 }
 
 type TradeableKind uint
+
 const (
 	TradeableKind_Money TradeableKind = iota
-	TradeableKind_Item 
+	TradeableKind_Item
 )
+
 type Tradeable struct {
-	Kind TradeableKind
-	Item Item
+	Kind     TradeableKind
+	Item     Item
 	Quantity uint
 }
 
 type Trade struct {
 	EndsAt, StartsAt time.Time
-	YouGive []Tradeable
-	YouTake []Tradeable
+	YouGive          []Tradeable
+	YouTake          []Tradeable
 }
 
 type Session struct {
 	DayStart time.Time
 	Fleurs   uint
-	Trades []Trade
+	Trades   []Trade
 
 	Inv map[Item]uint
 	Bru []Bru
@@ -826,35 +827,35 @@ func NewSession() *Session {
 
 		Trades: []Trade{
 			{
-				EndsAt: time.Now().Add(time.Second * 10),
+				EndsAt:   time.Now().Add(time.Second * 10),
 				StartsAt: time.Now(),
-				YouGive: []Tradeable {
+				YouGive: []Tradeable{
 					{
-						Kind: TradeableKind_Money,
+						Kind:     TradeableKind_Money,
 						Quantity: 5,
 					},
 				},
-				YouTake: []Tradeable {
+				YouTake: []Tradeable{
 					{
-						Kind: TradeableKind_Item,
-						Item: Item_MonsterCrate,
+						Kind:     TradeableKind_Item,
+						Item:     Item_MonsterCrate,
 						Quantity: 1,
 					},
 				},
 			},
 			{
-				EndsAt: time.Now().Add(time.Second * 60),
+				EndsAt:   time.Now().Add(time.Second * 60),
 				StartsAt: time.Now().Add(time.Second * 50),
-				YouGive: []Tradeable {
+				YouGive: []Tradeable{
 					{
-						Kind: TradeableKind_Item,
-						Item: Item_HealthBoba,
+						Kind:     TradeableKind_Item,
+						Item:     Item_HealthBoba,
 						Quantity: 1,
 					},
 				},
-				YouTake: []Tradeable {
+				YouTake: []Tradeable{
 					{
-						Kind: TradeableKind_Money,
+						Kind:     TradeableKind_Money,
 						Quantity: 15,
 					},
 				},
@@ -1006,29 +1007,29 @@ func (s *Session) TakeItems(item Item, takeCount uint) bool {
 
 func (sesh *Session) HasTradeable(t Tradeable) bool {
 	switch t.Kind {
-		case TradeableKind_Money:
-			return sesh.Fleurs >= t.Quantity
-		case TradeableKind_Item:
-			return sesh.HasItems(t.Item, t.Quantity)
+	case TradeableKind_Money:
+		return sesh.Fleurs >= t.Quantity
+	case TradeableKind_Item:
+		return sesh.HasItems(t.Item, t.Quantity)
 	}
 	return false
 }
 
 func (sesh *Session) TakeTradeable(t Tradeable) {
 	switch t.Kind {
-		case TradeableKind_Money:
-			sesh.TakeFleurs(t.Quantity)
-		case TradeableKind_Item:
-			sesh.TakeItems(t.Item, t.Quantity)
+	case TradeableKind_Money:
+		sesh.TakeFleurs(t.Quantity)
+	case TradeableKind_Item:
+		sesh.TakeItems(t.Item, t.Quantity)
 	}
 }
 
 func (sesh *Session) GiveTradeable(t Tradeable) {
 	switch t.Kind {
-		case TradeableKind_Money:
-			sesh.Fleurs += t.Quantity
-		case TradeableKind_Item:
-			sesh.GiveItems(t.Item, t.Quantity)
+	case TradeableKind_Money:
+		sesh.Fleurs += t.Quantity
+	case TradeableKind_Item:
+		sesh.GiveItems(t.Item, t.Quantity)
 	}
 }
 
@@ -1086,12 +1087,12 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if len(sesh.Trades) > 0 {
 		trade := sesh.Trades[0]
 		if time.Now().After(trade.StartsAt) && time.Now().Before(trade.EndsAt) {
-				
+
 			if path == "/tradeaction0" {
 				sesh.Trades = sesh.Trades[1:]
 			} else if path == "/tradeaction1" {
 
-				func () {
+				func() {
 					for _, t := range trade.YouGive {
 						if !sesh.HasTradeable(t) {
 							return

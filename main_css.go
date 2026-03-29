@@ -40,6 +40,7 @@ main {
   max-height: calc(100% - 0.3rem);
   .main-content {
     position: relative;
+    overflow: scroll;
     margin: var(--main-content-pad);
     width: calc(100% - 2*var(--main-content-pad));
     height: calc(100% - 2*var(--main-content-pad));
@@ -111,6 +112,10 @@ function gameclockStr(timestamp) {
     else if (h < (12+3)) emoji = '☀️';
     else if (h < (12+6)) emoji = '☁️';
     else if (h <= (12+8)) emoji = '🌚';
+
+    if (h == (12+4) && m == 20) {
+        emoji = '🍃';
+    }
 
     const am = (h < 12) ? 'AM' : 'PM';
 

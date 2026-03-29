@@ -14,6 +14,10 @@ import (
 	"slices"
 )
 
+const IRL_MS_IN_A_GAME_SEC = 180
+const DAY_HOUR_START = 6
+const DAY_HOUR_END = 20
+
 func gaussianRandom(mean, stddev float64) float64 {
 	u1 := rand.Float64()
 	u2 := rand.Float64()
@@ -25,6 +29,10 @@ func gaussianRandom(mean, stddev float64) float64 {
 
 	z0 := math.Sqrt(-2*math.Log(u1)) * math.Cos(2*math.Pi*u2)
 	return z0*stddev + mean
+}
+
+func gaussianRandomInt(mean, sttdev float64) uint {
+	return uint(max(0, math.Round(gaussianRandom(mean, sttdev))))
 }
 
 type Rcx struct {
@@ -778,10 +786,18 @@ const (
 	TradeableKind_Item
 )
 
+type TradeQuantityKind uint
+
+const (
+	TradeQuantityKind_Integer TradeQuantityKind = iota
+	TradeQuantityKind_All
+)
+
 type Tradeable struct {
-	Kind     TradeableKind
-	Item     Item
-	Quantity uint
+	Kind         TradeableKind
+	Item         Item
+	QuantityKind TradeQuantityKind
+	Quantity     uint
 }
 
 type Trade struct {
@@ -791,6 +807,7 @@ type Trade struct {
 }
 
 type Session struct {
+	Day      uint
 	DayStart time.Time
 	Fleurs   uint
 	Trades   []Trade
@@ -809,57 +826,181 @@ type Session struct {
 }
 
 func NewSession() *Session {
-	return &Session{
+	sesh := &Session{
+		Day:      1,
 		DayStart: time.Now(),
 		Fleurs:   100,
 		Tab:      SessionTab_Inventory,
 
 		Inv: map[Item]uint{
-			Item_FlyAgaric:    1,
-			Item_Bone:         2,
+			Item_MonsterCrate: 1,
 		},
 
 		Bru: []Bru{
 			{},
 		},
-
-		Trades: []Trade{
-			{
-				EndsAt:   time.Now().Add(time.Second * 10),
-				StartsAt: time.Now(),
-				YouGive: []Tradeable{
-					{
-						Kind:     TradeableKind_Money,
-						Quantity: 5,
-					},
-				},
-				YouTake: []Tradeable{
-					{
-						Kind:     TradeableKind_Item,
-						Item:     Item_MonsterCrate,
-						Quantity: 5,
-					},
-				},
-			},
-			{
-				EndsAt:   time.Now().Add(time.Second * 60),
-				StartsAt: time.Now().Add(time.Second * 50),
-				YouGive: []Tradeable{
-					{
-						Kind:     TradeableKind_Item,
-						Item:     Item_HealthBoba,
-						Quantity: 1,
-					},
-				},
-				YouTake: []Tradeable{
-					{
-						Kind:     TradeableKind_Money,
-						Quantity: 25,
-					},
-				},
-			},
-		},
 	}
+
+	sesh.Trades = sesh.MakeTradesForDay()
+
+	return sesh
+}
+
+func (sesh *Session) MakeTradesForDay() []Trade {
+	trades := []Trade{}
+
+	type Meridiem uint
+	const (
+		Meridiem_AM Meridiem = iota
+		Meridiem_PM
+	)
+	gameTimeToIRL := func(h, m time.Duration, meridiem Meridiem) time.Time {
+		if meridiem == Meridiem_PM {
+			h += 12
+		}
+		ms := ((h-DAY_HOUR_START)*60 + m) * IRL_MS_IN_A_GAME_SEC
+		return sesh.DayStart.Add(ms * time.Millisecond)
+	}
+
+	type Phase uint
+	const (
+		Phase_Morning Phase = iota
+		Phase_Rush
+		Phase_Evening
+	)
+
+	for _, phase := range []struct {
+		phase        Phase
+		start, end   time.Time
+		dealsPerHour uint
+	}{
+		{
+			phase:        Phase_Morning,
+			start:        gameTimeToIRL(6, 0, Meridiem_AM),
+			end:          gameTimeToIRL(9, 0, Meridiem_AM),
+			dealsPerHour: 1,
+		},
+		{
+			phase:        Phase_Rush,
+			start:        gameTimeToIRL(9, 0, Meridiem_AM),
+			end:          gameTimeToIRL(3, 0, Meridiem_PM),
+			dealsPerHour: 3,
+		},
+		{
+			phase:        Phase_Evening,
+			start:        gameTimeToIRL(3, 0, Meridiem_PM),
+			end:          gameTimeToIRL(6, 0, Meridiem_PM),
+			dealsPerHour: 1,
+		},
+	} {
+		gameHourMs := uint(IRL_MS_IN_A_GAME_SEC * 60)
+		phaseLenHours := uint(phase.end.Sub(phase.start) / time.Millisecond)
+		phaseLenHours /= gameHourMs
+
+		for i := uint(0); i < phaseLenHours; i++ {
+			timeLerp := func(a, b time.Time) time.Time {
+				return a.Add(time.Duration(float64(b.Sub(a)) * rand.Float64()))
+			}
+			ms := time.Millisecond
+			t := timeLerp(
+				phase.start.Add(ms*time.Duration(gameHourMs*i)),
+				phase.start.Add(ms*time.Duration(gameHourMs*(i+1))),
+			)
+
+			moneyForMonster := func(money uint) Trade {
+				return Trade{
+					StartsAt: t,
+					EndsAt:   t.Add(time.Second * 10),
+					YouGive: []Tradeable{
+						{Kind: TradeableKind_Money, Quantity: money},
+					},
+					YouTake: []Tradeable{
+						{Kind: TradeableKind_Item, Item: Item_MonsterCrate, Quantity: 1},
+					},
+				}
+			}
+
+			bobaForMoney := func(money uint) Trade {
+				return Trade{
+					StartsAt: t,
+					EndsAt:   t.Add(time.Second * 10),
+					YouGive: []Tradeable{
+						{Kind: TradeableKind_Item, Item: Item_HealthBoba, Quantity: 1},
+					},
+					YouTake: []Tradeable{
+						{Kind: TradeableKind_Money, Quantity: money},
+					},
+				}
+			}
+
+			allBobaForMoney := func(money uint) Trade {
+				return Trade{
+					StartsAt: t,
+					EndsAt:   t.Add(time.Second * 10),
+					YouGive: []Tradeable{
+						{
+							Kind:         TradeableKind_Item,
+							Item:         Item_HealthBoba,
+							QuantityKind: TradeQuantityKind_All,
+						},
+					},
+					YouTake: []Tradeable{
+						{Kind: TradeableKind_Money, Quantity: money},
+					},
+				}
+			}
+
+			switch phase.phase {
+			case Phase_Morning:
+				trades = append(trades, moneyForMonster(
+					gaussianRandomInt(7, 2),
+				))
+
+			case Phase_Rush:
+				options := []struct {
+					weight float64
+					trade  Trade
+				}{
+					{1.0, bobaForMoney(gaussianRandomInt(25, 5))},
+					{0.2, moneyForMonster(gaussianRandomInt(7, 4))},
+					{0.1, allBobaForMoney(1)},
+				}
+
+				weightTotal := 0.0
+				for _, x := range options {
+					weightTotal += x.weight
+				}
+
+				for i, _ := range options {
+					options[i].weight /= weightTotal
+				}
+
+				n := rand.Float64()
+				optionIdx := 0
+				for _, x := range options {
+					if n < x.weight {
+						optionIdx = 0
+						break
+					}
+					n -= x.weight
+				}
+
+				trades = append(trades, options[optionIdx].trade)
+
+			case Phase_Evening:
+				trades = append(trades, moneyForMonster(
+					gaussianRandomInt(7, 2),
+				))
+
+			}
+		}
+	}
+
+	slices.SortFunc(trades, func(a, b Trade) int {
+		return int(a.StartsAt.Sub(b.StartsAt))
+	})
+
+	return trades
 }
 
 type SessionTab uint
@@ -969,6 +1110,9 @@ func (item Item) String() string {
 }
 
 func (s *Session) GiveItems(item Item, count uint) {
+	if count <= 0 {
+		return
+	}
 	if _, has := s.Inv[item]; has {
 		s.Inv[item] += count
 		return
@@ -1082,31 +1226,38 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	/* TradeOfferModal controller */
-	if len(sesh.Trades) > 0 {
-		trade := sesh.Trades[0]
-		if time.Now().After(trade.StartsAt) && time.Now().Before(trade.EndsAt) {
+	{
+		/* clear out trades that have gone stale since the last request */
+		for len(sesh.Trades) > 0 && time.Now().After(sesh.Trades[0].EndsAt) {
+			sesh.Trades = sesh.Trades[1:]
+		}
 
-			if path == "/tradeaction0" {
-				sesh.Trades = sesh.Trades[1:]
-			} else if path == "/tradeaction1" {
+		if len(sesh.Trades) > 0 {
+			trade := sesh.Trades[0]
+			if time.Now().After(trade.StartsAt) && time.Now().Before(trade.EndsAt) {
 
-				func() {
-					for _, t := range trade.YouGive {
-						if !sesh.HasTradeable(t) {
-							return
-						}
-					}
-
-					for _, t := range trade.YouGive {
-						sesh.TakeTradeable(t)
-					}
-
-					for _, t := range trade.YouTake {
-						sesh.GiveTradeable(t)
-					}
-
+				if path == "/tradeaction0" {
 					sesh.Trades = sesh.Trades[1:]
-				}()
+				} else if path == "/tradeaction1" {
+
+					func() {
+						for _, t := range trade.YouGive {
+							if !sesh.HasTradeable(t) {
+								return
+							}
+						}
+
+						for _, t := range trade.YouGive {
+							sesh.TakeTradeable(t)
+						}
+
+						for _, t := range trade.YouTake {
+							sesh.GiveTradeable(t)
+						}
+
+						sesh.Trades = sesh.Trades[1:]
+					}()
+				}
 			}
 		}
 	}
@@ -1138,16 +1289,13 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 			if item == Item_MonsterCrate &&
 				sesh.TakeItems(Item_MonsterCrate, 1) {
 				action.kind = InventoryContentActionKind_Open
-				gaussianInt := func(mean, sttdev float64) uint {
-					return uint(max(0, math.Round(gaussianRandom(mean, sttdev))))
-				}
 
 				action.open.got = []struct {
 					item  Item
 					count uint
 				}{
-					{Item_FlyAgaric, gaussianInt(2, 2)},
-					{Item_Bone, gaussianInt(2, 1)},
+					{Item_FlyAgaric, gaussianRandomInt(10, 1)},
+					{Item_Bone, gaussianRandomInt(2, 1)},
 				}
 
 				for _, drop := range action.open.got {
@@ -1227,6 +1375,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(sesh.Trades) > 0 {
+
 		trade := sesh.Trades[0]
 		if time.Now().After(trade.StartsAt) && time.Now().Before(trade.EndsAt) {
 			sesh.TradeOfferModal(rcx)

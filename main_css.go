@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 const main_css = `
 document, body {
   width: 100vw; height: 100vh;
@@ -75,7 +77,7 @@ main {
 }
 `
 
-const main_js = `
+var main_js = `
 function durationStr(timestamp) {
     const t = Math.abs(Date.now() - Date.parse(timestamp));
 
@@ -92,22 +94,23 @@ function durationStr(timestamp) {
 
 function gameclockStr(timestamp) {
     let t = Date.now() - Date.parse(timestamp);
-    t /= 180;
+    t /= ` + fmt.Sprintf("%d", IRL_MS_IN_A_GAME_SEC) + `;
 
-    let h = Math.floor(t / 60) + 6;
+    let h = Math.floor(t / 60) + ` + fmt.Sprintf("%d", DAY_HOUR_START) + `;
     let m = Math.floor(t % 60);
     m = Math.floor(m/10)*10;
 
-    /* time stops at 8:00 PM */
-    if (h > 19) {
+    /* time stops at day end! PM */
+    if (h >= ` + fmt.Sprintf("%d", DAY_HOUR_END) + `) {
         h = 20
         m = 0
     }
 
     let emoji = '☀️';
-    if (h < 7) emoji = '🌅';
-    else if (h < 15) emoji = '☀️';
-    else if (h < 21) emoji = '🌚';
+    if (h < 9) emoji = '🌅';
+    else if (h < (12+3)) emoji = '☀️';
+    else if (h < (12+6)) emoji = '☁️';
+    else if (h <= (12+8)) emoji = '🌚';
 
     const am = (h < 12) ? 'AM' : 'PM';
 

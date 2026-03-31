@@ -118,7 +118,7 @@ func (s *Session) TradeOfferModal(rcx *Rcx) {
 
 	rcx.html += `<div`
 	rcx.html += ` class="modal-wrapper"`
-	rcx.html += ` onclick="location.pathname='/tradeaction0'"`
+	rcx.html += ` onclick="location.pathname='/shopkept/tradeaction0'"`
 	rcx.html += `>`
 	rcx.html += `<div onclick="event.stopPropagation()" class="modal trade-modal">`
 
@@ -385,7 +385,7 @@ func (s *Session) BrewingContent(rcx *Rcx) {
 	if s.BruTab.Modal == BruModal_BrewWhat {
 		rcx.html += `<div`
 		rcx.html += ` class="modal-wrapper"`
-		rcx.html += ` onclick="location.pathname='/brew-1'"`
+		rcx.html += ` onclick="location.pathname='/shopkept/brew-1'"`
 		rcx.html += `>`
 		rcx.html += `<div onclick="event.stopPropagation()" class="modal">`
 		rcx.html += `<div>what's brewing?</div>`
@@ -464,7 +464,7 @@ func (s *Session) BrewingContent(rcx *Rcx) {
 	if s.BruTab.Modal == BruModal_Done {
 		rcx.html += `<div`
 		rcx.html += ` class="modal-wrapper"`
-		rcx.html += ` onclick="location.pathname='/brew-1'"`
+		rcx.html += ` onclick="location.pathname='/shopkept/brew-1'"`
 		rcx.html += `>`
 		rcx.html += `<div onclick="event.stopPropagation()" class="modal">`
 
@@ -628,7 +628,7 @@ func (s *Session) InventoryContent(rcx *Rcx, invAction InventoryContentAction) {
 		item := s.InvTab.SelectedItem
 		rcx.html += `<div`
 		rcx.html += ` class="modal-wrapper"`
-		rcx.html += ` onclick="location.pathname='/item0'"`
+		rcx.html += ` onclick="location.pathname='/shopkept/item0'"`
 		rcx.html += `>`
 		rcx.html += `<div onclick="event.stopPropagation()" class="modal inv-selected-modal">`
 
@@ -1200,7 +1200,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		seshCookie, err := r.Cookie("Sesh")
 		seshCookieVal := ""
 		resetCookie := false
-		if err != nil {
+		if err != nil || path == "/reset" {
 			resetCookie = true
 			seshCookieVal = cryptrand.Text()
 		} else {
@@ -1215,21 +1215,31 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		sesh = h.sessions[seshCookieVal]
 
 		if resetCookie {
+			if path != "/shopkept/" {
+				/* erase their last action from the url bar */
+				rw.Header().Set("Location", "/shopkept/")
+				http.SetCookie(rw, &http.Cookie{
+					Name:     "Sesh",
+					Value:    seshCookieVal,
+					HttpOnly: true,
+					Secure:   true,
+					SameSite: http.SameSiteStrictMode,
+				})
+				rw.WriteHeader(302)
+			}
+
 			/* ignore path bc we didn't know who they were */
 			path = "/"
-
-			/* erase their last action from the url bar */
-			rw.Header().Set("Location", "/shopkept/")
-			http.SetCookie(rw, &http.Cookie{
-				Name:     "Sesh",
-				Value:    seshCookieVal,
-				HttpOnly: true,
-				Secure:   true,
-				SameSite: http.SameSiteStrictMode,
-			})
-			rw.WriteHeader(302)
 		}
 	}
+
+	// { /* already comes trimmed? weird */
+	// 	trimmed := ""
+	// 	n, err := fmt.Sscanf(path, "/shopkept/%s", &trimmed)
+	// 	if n > 0 && err == nil {
+	// 	        path = trimmed
+	// 	}
+	// }
 
 	rcx := &Rcx{
 		css:            main_css,
@@ -1459,7 +1469,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 </html>
     `, rcx.css, rcx.js, rcx.html)
 
-	rw.Header().Set("Refresh", fmt.Sprintf("%d; url=/", rcx.refreshSeconds))
+	rw.Header().Set("Refresh", fmt.Sprintf("%d; url=/shopkept/", rcx.refreshSeconds))
 
 	rw.Write([]byte(doc))
 }

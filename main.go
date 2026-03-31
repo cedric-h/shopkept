@@ -239,8 +239,8 @@ func (s *Session) TradeOfferModal(rcx *Rcx) {
 	}
 
 	rcx.html += `<div class="trade-options">`
-	rcx.html += `<a class="no" href="/tradeaction0">no</a>`
-	attrs := `href="/tradeaction1"`
+	rcx.html += `<a class="no" href="tradeaction0">no</a>`
+	attrs := `href="tradeaction1"`
 	for _, t := range trade.YouGive {
 		if !s.HasTradeable(t) {
 			attrs = "disabled"
@@ -347,7 +347,7 @@ func (s *Session) BrewingContent(rcx *Rcx) {
 			rcx.refreshWhen(bru.Done.Add(-100 * time.Millisecond))
 		}
 		if stage != BruStage_Brewing {
-			href = fmt.Sprintf(`href="/brew%d"`, i)
+			href = fmt.Sprintf(`href="brew%d"`, i)
 
 			if stage == BruStage_Empty && time.Now().After(s.DayEnd) {
 				href = "disabled"
@@ -370,7 +370,7 @@ func (s *Session) BrewingContent(rcx *Rcx) {
 	}
 
 	rcx.html += fmt.Sprintf(
-		`<a href="/brew%d" class="brew-entry">`,
+		`<a href="brew%d" class="brew-entry">`,
 		len(s.Bru),
 	)
 	rcx.html += `<div class="brew-icon">🚰</div>`
@@ -400,7 +400,7 @@ func (s *Session) BrewingContent(rcx *Rcx) {
 			}
 
 			rcx.html += fmt.Sprintf(
-				`<a %s href="/brewrecipe%d" class="brew-opt">`,
+				`<a %s href="brewrecipe%d" class="brew-opt">`,
 				disabled,
 				recipe,
 			)
@@ -474,7 +474,7 @@ func (s *Session) BrewingContent(rcx *Rcx) {
 		rcx.html += fmt.Sprintf(`<div class="title">%s</div>`, item.Title())
 		rcx.html += fmt.Sprintf(`<div class="icon">%s</div>`, item.Emoji())
 		rcx.html += fmt.Sprintf(`<i class="flavor">%s</i>`, item.Flavor())
-		rcx.html += `<a class="action" href="/brew-1">yay</a>`
+		rcx.html += `<a class="action" href="brew-1">yay</a>`
 
 		rcx.html += `</div>`
 		rcx.html += `</div>`
@@ -638,7 +638,7 @@ func (s *Session) InventoryContent(rcx *Rcx, invAction InventoryContentAction) {
 
 		href, action := item.Action()
 		if invAction.kind == InventoryContentActionKind_Open {
-			href = "/item0"
+			href = "item0"
 			action = "done"
 
 			if len(invAction.open.got) == 0 {
@@ -1078,11 +1078,11 @@ func (item Item) Title() string {
 func (item Item) Action() (string, string) {
 	switch item {
 	case Item_FlyAgaric, Item_Bone:
-		return fmt.Sprintf("/tab%d", SessionTab_Brewing), "go to brewing"
+		return fmt.Sprintf("tab%d", SessionTab_Brewing), "go to brewing"
 	case Item_MonsterCrate, Item_AncientCrate:
-		return fmt.Sprintf("/openitem%d", item), "open"
+		return fmt.Sprintf("openitem%d", item), "open"
 	}
-	return "/item0", "done"
+	return "item0", "done"
 }
 
 func (item Item) Flavor() string {
@@ -1219,7 +1219,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 			path = "/"
 
 			/* erase their last action from the url bar */
-			rw.Header().Set("Location", "/")
+			rw.Header().Set("Location", "/shopkept/")
 			http.SetCookie(rw, &http.Cookie{
 				Name:     "Sesh",
 				Value:    seshCookieVal,
@@ -1293,7 +1293,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		sesh.StatusBar(rcx)
 
 		if time.Now().After(sesh.DayEnd) {
-			rcx.html += `<a href="/sleep" class="sleep"> sleep </a>`
+			rcx.html += `<a href="sleep" class="sleep"> sleep </a>`
 			rcx.css += `
 				.sleep {
 					display: flex;

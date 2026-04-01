@@ -14,6 +14,7 @@ import (
 	"slices"
 )
 
+const PREFIX="halibut"
 const IRL_MS_IN_A_GAME_SEC = 180
 const GAME_SEC = time.Millisecond * IRL_MS_IN_A_GAME_SEC
 const GAME_HOUR = GAME_SEC * 60
@@ -378,7 +379,7 @@ func (s *Session) BrewingContent(rcx *Rcx) {
 	if s.BruTab.Modal == BruModal_BrewWhat {
 		rcx.html += `<div`
 		rcx.html += ` class="modal-wrapper"`
-		rcx.html += ` onclick="location.pathname='/shopkept/brew-1'"`
+		rcx.html += ` onclick="location.pathname='/`+PREFIX+`/brew-1'"`
 		rcx.html += `>`
 		rcx.html += `<div onclick="event.stopPropagation()" class="modal">`
 		rcx.html += `<div>what's brewing?</div>`
@@ -457,7 +458,7 @@ func (s *Session) BrewingContent(rcx *Rcx) {
 	if s.BruTab.Modal == BruModal_Done {
 		rcx.html += `<div`
 		rcx.html += ` class="modal-wrapper"`
-		rcx.html += ` onclick="location.pathname='/shopkept/brew-1'"`
+		rcx.html += ` onclick="location.pathname='/`+PREFIX+`/brew-1'"`
 		rcx.html += `>`
 		rcx.html += `<div onclick="event.stopPropagation()" class="modal">`
 
@@ -541,53 +542,6 @@ func (s *Session) BrewingContent(rcx *Rcx) {
     `
 }
 
-func (s *Session) TabBar(rcx *Rcx) {
-	titleForTab := func(tab SessionTab) string {
-		switch tab {
-		case SessionTab_Inventory:
-			return "👜 inventory"
-		case SessionTab_Brewing:
-			return "🚰 brewing"
-		}
-		return "wtf"
-	}
-
-	rcx.html += `<div class="tab-bar">`
-	for t := SessionTab(0); t < SessionTab_COUNT; t++ {
-		if s.Tab == t {
-			rcx.html += `<div class="tab">`
-			rcx.html += titleForTab(t)
-			rcx.html += `</div>`
-			continue
-		}
-		rcx.html += fmt.Sprintf(`<a class="tab not-selected" href="tab%d">`, t)
-		rcx.html += titleForTab(t)
-		rcx.html += `</a>`
-	}
-	rcx.html += `</div>`
-	rcx.css += `
-        .tab-bar {
-            font-size: 0.8rem;
-            margin-bottom: 1rem;
-            .tab {
-                border-top-left-radius: 0.3rem;
-                border-top-right-radius: 0.3rem;
-                padding: 0.2rem 0.4rem 0.2rem 0.4rem;
-                border: 0.1rem solid var(--fg);
-                &.not-selected {
-                    border: 0.1rem solid var(--disabled-fg);
-                    border-bottom-width: 0rem;
-                }
-                border-bottom-width: 0rem;
-            }
-            width: 100%;
-            display: flex;
-            justify-content: space-evenly;
-            border-bottom: 0.1rem solid var(--disabled-fg);
-        }
-    `
-}
-
 type InventoryContentActionKind uint
 
 const (
@@ -621,7 +575,7 @@ func (s *Session) InventoryContent(rcx *Rcx, invAction InventoryContentAction) {
 		item := s.InvTab.SelectedItem
 		rcx.html += `<div`
 		rcx.html += ` class="modal-wrapper"`
-		rcx.html += ` onclick="location.pathname='/shopkept/item0'"`
+		rcx.html += ` onclick="location.pathname='/`+PREFIX+`/item0'"`
 		rcx.html += `>`
 		rcx.html += `<div onclick="event.stopPropagation()" class="modal inv-selected-modal">`
 
@@ -833,7 +787,7 @@ func NewSession() *Session {
 		DayStart: time.Now(),
 		DayEnd:   time.Now().Add(GAME_HOUR * (DAY_HOUR_END - DAY_HOUR_START)),
 		Fleurs:   100,
-		Tab:      SessionTab_Inventory,
+		Tab:      SessionTab_Counter,
 
 		Inv: map[Item]uint{
 			Item_MonsterCrate: 1,
@@ -1252,9 +1206,9 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		sesh = h.sessions[seshCookieVal]
 
 		if resetCookie {
-			if path != "/shopkept/" {
+			if path != `/`+PREFIX+`/` {
 				/* erase their last action from the url bar */
-				rw.Header().Set("Location", "/shopkept/")
+				rw.Header().Set("Location", `/`+PREFIX+`/`)
 				http.SetCookie(rw, &http.Cookie{
 					Name:     "Sesh",
 					Value:    seshCookieVal,
@@ -1272,7 +1226,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	{ /* this doesn't need to run in production because nginx does this */
 		trimmed := ""
-		n, err := fmt.Sscanf(path, "/shopkept/%s", &trimmed)
+		n, err := fmt.Sscanf(path, "/"+PREFIX+"/%s", &trimmed)
 		if n > 0 && err == nil {
 			path = "/"+trimmed
 		}
@@ -1283,6 +1237,20 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		js:             main_js,
 		refreshSeconds: 9999999,
 	}
+
+	func () {
+		var tab SessionTab = 0
+		n, err := fmt.Sscanf(path, "/settab%d", &tab)
+		if n == 0 || err != nil {
+			return
+		}
+
+		if tab < 0 || tab >= SessionTab_COUNT {
+			return
+		}
+
+		sesh.Tab = tab
+	}()
 
 	/* TradeOfferModal controller */
 	{
@@ -1329,7 +1297,25 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		sesh.Trades = sesh.MakeTradesForDay()
 	}
 
-	for t := SessionTab(0); t < SessionTab_COUNT; t++ {
+	tabs := []SessionTab {
+		SessionTab_Brewing,
+		SessionTab_Counter,
+		SessionTab_Inventory,
+	}
+
+	if sesh.Tab == SessionTab_Brewing {
+		tabs[0] = SessionTab_Inventory
+		tabs[1] = SessionTab_Brewing
+		tabs[2] = SessionTab_Counter
+	}
+
+	if sesh.Tab == SessionTab_Inventory {
+		tabs[0] = SessionTab_Counter
+		tabs[1] = SessionTab_Inventory
+		tabs[2] = SessionTab_Brewing
+	}
+
+	for _, t := range tabs {
 		rcx.html += fmt.Sprintf(
 			`<div class="room" data-room-id="%d">`,
 			t,
@@ -1430,10 +1416,12 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 					for _, drop := range action.open.got {
 						sesh.GiveItems(drop.item, drop.count)
 					}
+				} else {
+					sesh.InvTab.SelectedItem = Item_None
 				}
 			}
 
-			sesh.InventoryContent(rcx, InventoryContentAction{})
+			sesh.InventoryContent(rcx, action)
 		}
 
 		rcx.html += `</div>`
@@ -1444,12 +1432,14 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 <html lang='en'>
   <head>
     <meta charset='utf-8'/>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%%22http://www.w3.org/2000/svg%%22 viewBox=%%220 0 100 100%%22><text y=%%22.9em%%22 font-size=%%2290%%22>👜</text></svg>">
-    <title>shopkept</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%%22http://www.w3.org/2000/svg%%22 viewBox=%%220 0 100 100%%22><text y=%%22.9em%%22 font-size=%%2290%%22>🎏</text></svg>">
+    <title>FOR THE HALIBUT</title>
     <style>
 %s
     </style>
     <script>
+const REFRESH_SECONDS = %d;
+const REFRESH_START = Date.now();
 %s
     </script>
   </head>
@@ -1462,16 +1452,14 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
     </main>
   </body>
 </html>
-    `, rcx.css, rcx.js, rcx.html)
-
-	rw.Header().Set("Refresh", fmt.Sprintf("%d; url=/shopkept/", rcx.refreshSeconds))
+    `, rcx.css, rcx.refreshSeconds, rcx.js, rcx.html)
 
 	rw.Write([]byte(doc))
 }
 
 func main() {
 	srv := http.Server{
-		Addr:    ":8085",
+		Addr:    ":8086",
 		Handler: Handler{sessions: map[string]*Session{}},
 	}
 

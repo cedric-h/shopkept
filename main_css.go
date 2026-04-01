@@ -38,8 +38,8 @@ main {
   margin: auto;
   min-height: 0;
   max-height: calc(100% - 0.3rem);
+  position: relative;
   .main-content {
-    position: relative;
     width: 100%;
     height: 100%;
     overflow-x: scroll;
@@ -105,30 +105,49 @@ function durationStr(timestamp) {
     if (d < 1) return ` + "`${h}h ${m}m ${s}s`" + `;
 }
 
-window.onload = () => document.querySelector(".main-content").addEventListener(
-    "scrollend",
-    e => {
-        e.preventDefault();
-        
-        const [a, b, c] = [...e.target.children];
+let switchingTabs = false;
+window.onload = () => {
+    const e = document.querySelector(".main-content");
+    e.scrollLeft = e.getBoundingClientRect().width;
 
-        const scrolledTo = [a, b, c].sort(a =>
-            Math.abs(a.offsetLeft - e.target.scrollLeft) -
-                Math.abs(b.offsetLeft - e.target.scrollLeft)
-        )[0]
-
-        console.log(scrolledTo.dataset.roomId);
-
-        if (scrolledTo == b) {
-            e.target.replaceChildren(c, a, b);
+    let lastCall = Date.now();
+    document.querySelector(".main-content").addEventListener(
+        "scroll",
+        () => {
+            switchingTabs = true;
         }
+    )
+    document.querySelector(".main-content").addEventListener(
+        "scrollend",
+        e => {
+            e.preventDefault();
+            switchingTabs = false;
 
-        if (scrolledTo == c) {
-            e.target.replaceChildren(b, c, a);
-        }
-    },
-    { passive: false }
-);
+            if ((Date.now() - lastCall) < 40)
+                return;
+
+            const [a, b, c] = [...e.target.children];
+
+            const scrolledTo = [a, b, c].sort(a =>
+                Math.abs(a.offsetLeft - e.target.scrollLeft) -
+                    Math.abs(b.offsetLeft - e.target.scrollLeft)
+            )[0]
+
+            if (scrolledTo == a) {
+                e.target.replaceChildren(c, a, b);
+            }
+
+            if (scrolledTo == c) {
+                e.target.replaceChildren(b, c, a);
+            }
+
+            lastCall = Date.now();
+
+            fetch("settab" + scrolledTo.dataset.roomId);
+        },
+        { passive: false }
+    );
+}
 
 function gameclockStr(timestamp) {
     let t = Date.now() - Date.parse(timestamp);
@@ -161,6 +180,8 @@ function gameclockStr(timestamp) {
 }
 
 requestAnimationFrame(function frame() {
+    if (!switchingTabs && ((Date.now() - REFRESH_START)/1000) >= REFRESH_SECONDS)
+        location.pathname = "/`+PREFIX+`/"
     requestAnimationFrame(frame);
     document
         .querySelectorAll("time[data-format]")

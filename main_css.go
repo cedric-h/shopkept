@@ -40,10 +40,22 @@ main {
   max-height: calc(100% - 0.3rem);
   .main-content {
     position: relative;
-    overflow: scroll;
-    margin: var(--main-content-pad);
-    width: calc(100% - 2*var(--main-content-pad));
-    height: calc(100% - 2*var(--main-content-pad));
+    width: 100%;
+    height: 100%;
+    overflow-x: scroll;
+    display: flex;
+    flex-wrap: nowrap;
+    scroll-snap-type: x mandatory;
+    scroll-snap-stop: always;
+    scrollbar-width: none;
+
+    .room {
+        margin: var(--main-content-pad);
+        width: calc(100% - 2*var(--main-content-pad));
+        height: calc(100% - 2*var(--main-content-pad));
+        flex: 0 0 auto;
+        scroll-snap-align: center;
+    }
 
     a {
         text-decoration: none;
@@ -92,6 +104,31 @@ function durationStr(timestamp) {
     if (h < 1) return ` + "`${m}m ${s}s`" + `;
     if (d < 1) return ` + "`${h}h ${m}m ${s}s`" + `;
 }
+
+window.onload = () => document.querySelector(".main-content").addEventListener(
+    "scrollend",
+    e => {
+        e.preventDefault();
+        
+        const [a, b, c] = [...e.target.children];
+
+        const scrolledTo = [a, b, c].sort(a =>
+            Math.abs(a.offsetLeft - e.target.scrollLeft) -
+                Math.abs(b.offsetLeft - e.target.scrollLeft)
+        )[0]
+
+        console.log(scrolledTo.dataset.roomId);
+
+        if (scrolledTo == b) {
+            e.target.replaceChildren(c, a, b);
+        }
+
+        if (scrolledTo == c) {
+            e.target.replaceChildren(b, c, a);
+        }
+    },
+    { passive: false }
+);
 
 function gameclockStr(timestamp) {
     let t = Date.now() - Date.parse(timestamp);

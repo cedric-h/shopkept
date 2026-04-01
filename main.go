@@ -116,12 +116,7 @@ func (tradeable Tradeable) Flavor() string {
 func (s *Session) TradeOfferModal(rcx *Rcx) {
 	trade := s.Trades[0]
 
-	rcx.html += `<div`
-	rcx.html += ` class="modal-wrapper"`
-	rcx.html += ` onclick="location.pathname='/shopkept/tradeaction0'"`
-	rcx.html += `>`
-	rcx.html += `<div onclick="event.stopPropagation()" class="modal trade-modal">`
-
+	rcx.html += `<div class="trade-content">`
 	rcx.html += `<div class="trade-top">`
 	{
 		rcx.html += `<div class="trade-details">`
@@ -252,12 +247,10 @@ func (s *Session) TradeOfferModal(rcx *Rcx) {
 		attrs,
 	)
 	rcx.html += `</div>`
-
-	rcx.html += `</div>`
-	rcx.html += `</div>`
+	rcx.html += `</div>` //  class="trade-content"
 
 	rcx.css += `
-		.trade-modal {
+		.trade-content {
 			display: flex;
 			flex-direction: column;
 			gap: 1rem;
@@ -1018,8 +1011,9 @@ func (sesh *Session) MakeTradesForDay() []Trade {
 type SessionTab uint
 
 const (
-	SessionTab_Inventory SessionTab = iota
-	SessionTab_Brewing
+	SessionTab_Brewing SessionTab = iota
+	SessionTab_Counter
+	SessionTab_Inventory
 	SessionTab_COUNT
 )
 
@@ -1187,6 +1181,49 @@ func (sesh *Session) GiveTradeable(t Tradeable) {
 	}
 }
 
+func (sesh *Session) CounterContent(rcx *Rcx) {
+	sesh.StatusBar(rcx)
+
+	if time.Now().After(sesh.DayEnd) {
+		rcx.html += `<a href="sleep" class="sleep"> sleep </a>`
+		rcx.css += `
+			.sleep {
+				display: flex;
+				justify-content: center;
+				margin-bottom: 1rem;
+				padding: 0.2rem;
+				border-radius: 0.3rem;
+				color: hsl(209deg 85.57% 61.96%);
+				border: 0.1rem solid hsl(209deg 85.57% 61.96%);
+				background-color: hsl(209deg 85.57% 61.96% / 20%);
+				&:hover {
+					background-color: hsl(209deg 85.57% 61.96% / 60%) !important;
+					color: black;
+				}
+			}
+		`
+	} else {
+		rcx.refreshWhen(sesh.DayEnd)
+	}
+
+	if len(sesh.Trades) > 0 {
+
+		trade := sesh.Trades[0]
+
+		for _, t := range append(append([]Tradeable{}, trade.YouGive...), trade.YouTake...) {
+			if t.QuantityKind == TradeQuantityKind_All {
+				t.Quantity = max(1, sesh.Inv[t.Item])
+			}
+		}
+
+		if time.Now().After(trade.StartsAt) && time.Now().Before(trade.EndsAt) {
+			sesh.TradeOfferModal(rcx)
+		} else {
+			rcx.refreshWhen(trade.StartsAt)
+		}
+	}
+}
+
 type Handler struct {
 	sessions map[string]*Session
 }
@@ -1233,13 +1270,13 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// { /* already comes trimmed? weird */
-	// 	trimmed := ""
-	// 	n, err := fmt.Sscanf(path, "/shopkept/%s", &trimmed)
-	// 	if n > 0 && err == nil {
-	// 	        path = trimmed
-	// 	}
-	// }
+	{ /* this doesn't need to run in production because nginx does this */
+		trimmed := ""
+		n, err := fmt.Sscanf(path, "/shopkept/%s", &trimmed)
+		if n > 0 && err == nil {
+			path = "/"+trimmed
+		}
+	}
 
 	rcx := &Rcx{
 		css:            main_css,
@@ -1284,13 +1321,6 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	/* TabBar controller */
-	var tab SessionTab = 0
-	n, err := fmt.Sscanf(path, "/tab%d", &tab)
-	if n > 0 && err == nil {
-		sesh.Tab = tab
-	}
-
 	/* sleep bar controller */
 	if time.Now().After(sesh.DayEnd) && path == "/sleep" {
 		sesh.Day++
@@ -1299,149 +1329,114 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		sesh.Trades = sesh.MakeTradesForDay()
 	}
 
-	topBars := func() {
-		sesh.StatusBar(rcx)
+	for t := SessionTab(0); t < SessionTab_COUNT; t++ {
+		rcx.html += fmt.Sprintf(
+			`<div class="room" data-room-id="%d">`,
+			t,
+		)
 
-		if time.Now().After(sesh.DayEnd) {
-			rcx.html += `<a href="sleep" class="sleep"> sleep </a>`
-			rcx.css += `
-				.sleep {
-					display: flex;
-					justify-content: center;
-					margin-bottom: 1rem;
-					padding: 0.2rem;
-					border-radius: 0.3rem;
-					color: hsl(209deg 85.57% 61.96%);
-					border: 0.1rem solid hsl(209deg 85.57% 61.96%);
-					background-color: hsl(209deg 85.57% 61.96% / 20%);
-					&:hover {
-						background-color: hsl(209deg 85.57% 61.96% / 60%) !important;
-						color: black;
+		switch t {
+		case SessionTab_Brewing:
+			rcx.html += `<div style="text-align:center;margin-bottom:1rem;">🚰 brewing</div>`
+			func() {
+				var brewIdx int = 0
+				n, err := fmt.Sscanf(path, "/brew%d", &brewIdx)
+				if n == 0 || err != nil {
+					return
+				}
+
+				if brewIdx < 0 {
+					if sesh.BruTab.Modal == BruModal_Done {
+						bru := sesh.Bru[sesh.BruTab.SelectedBruIdx]
+						sesh.GiveItems(bru.Recipe.Out(), 1)
+						sesh.Bru[sesh.BruTab.SelectedBruIdx] = Bru{}
+					}
+
+					sesh.BruTab.Modal = BruModal_None
+					return
+				}
+
+				if brewIdx >= len(sesh.Bru) {
+					if sesh.TakeFleurs(100) {
+						sesh.Bru = append(sesh.Bru, Bru{})
+					}
+					return
+				}
+
+				bru := sesh.Bru[brewIdx]
+
+				switch bru.BruStage() {
+				case BruStage_Brewed:
+					sesh.BruTab.Modal = BruModal_Done
+					sesh.BruTab.SelectedBruIdx = brewIdx
+				case BruStage_Brewing:
+					/* no action */
+				case BruStage_Empty:
+					sesh.BruTab.Modal = BruModal_BrewWhat
+					sesh.BruTab.SelectedBruIdx = brewIdx
+				}
+			}()
+
+			func() {
+				var recipeIdx int = 0
+				n, err := fmt.Sscanf(path, "/brewrecipe%d", &recipeIdx)
+				if n == 0 || err != nil {
+					return
+				}
+
+				if recipeIdx >= int(BruRecipe_COUNT) {
+					return
+				}
+
+				recipe := BruRecipe(recipeIdx)
+				in, inCount, inTime := recipe.In()
+				if sesh.TakeItems(in, inCount) {
+					sesh.Bru[sesh.BruTab.SelectedBruIdx] = Bru{
+						Recipe: recipe,
+						Done:   time.Now().Add(inTime),
+					}
+					sesh.BruTab.Modal = BruModal_None
+				}
+			}()
+
+			sesh.BrewingContent(rcx)
+
+		case SessionTab_Counter:
+			sesh.CounterContent(rcx)
+
+		case SessionTab_Inventory:
+			rcx.html += `<div style="text-align:center;margin-bottom:1rem;">💼 inventory</div>`
+			action := InventoryContentAction{}
+
+			var item Item = 0
+			n, err := fmt.Sscanf(path, "/item%d", &item)
+			if n > 0 && err == nil {
+				sesh.InvTab.SelectedItem = item
+			}
+			n, err = fmt.Sscanf(path, "/openitem%d", &item)
+			if n > 0 && err == nil {
+				if item == Item_MonsterCrate &&
+					sesh.TakeItems(Item_MonsterCrate, 1) {
+					action.kind = InventoryContentActionKind_Open
+
+					action.open.got = []struct {
+						item  Item
+						count uint
+					}{
+						{Item_FlyAgaric, gaussianRandomInt(6, 1.5)},
+						{Item_Bone, gaussianRandomInt(2, 1)},
+					}
+
+					for _, drop := range action.open.got {
+						sesh.GiveItems(drop.item, drop.count)
 					}
 				}
-			`
-		} else {
-			rcx.refreshWhen(sesh.DayEnd)
+			}
+
+			sesh.InventoryContent(rcx, InventoryContentAction{})
 		}
 
-		sesh.TabBar(rcx)
-	}
-
-	switch sesh.Tab {
-
-	case SessionTab_Inventory:
-		action := InventoryContentAction{}
-
-		var item Item = 0
-		n, err := fmt.Sscanf(path, "/item%d", &item)
-		if n > 0 && err == nil {
-			sesh.InvTab.SelectedItem = item
-		}
-		n, err = fmt.Sscanf(path, "/openitem%d", &item)
-		if n > 0 && err == nil {
-			if item == Item_MonsterCrate &&
-				sesh.TakeItems(Item_MonsterCrate, 1) {
-				action.kind = InventoryContentActionKind_Open
-
-				action.open.got = []struct {
-					item  Item
-					count uint
-				}{
-					{Item_FlyAgaric, gaussianRandomInt(6, 1.5)},
-					{Item_Bone, gaussianRandomInt(2, 1)},
-				}
-
-				for _, drop := range action.open.got {
-					sesh.GiveItems(drop.item, drop.count)
-				}
-			}
-		}
-
-		topBars()
-		sesh.InventoryContent(rcx, action)
-
-	case SessionTab_Brewing:
-
-		func() {
-			var brewIdx int = 0
-			n, err := fmt.Sscanf(path, "/brew%d", &brewIdx)
-			if n == 0 || err != nil {
-				return
-			}
-
-			if brewIdx < 0 {
-				if sesh.BruTab.Modal == BruModal_Done {
-					bru := sesh.Bru[sesh.BruTab.SelectedBruIdx]
-					sesh.GiveItems(bru.Recipe.Out(), 1)
-					sesh.Bru[sesh.BruTab.SelectedBruIdx] = Bru{}
-				}
-
-				sesh.BruTab.Modal = BruModal_None
-				return
-			}
-
-			if brewIdx >= len(sesh.Bru) {
-				if sesh.TakeFleurs(100) {
-					sesh.Bru = append(sesh.Bru, Bru{})
-				}
-				return
-			}
-
-			bru := sesh.Bru[brewIdx]
-
-			switch bru.BruStage() {
-			case BruStage_Brewed:
-				sesh.BruTab.Modal = BruModal_Done
-				sesh.BruTab.SelectedBruIdx = brewIdx
-			case BruStage_Brewing:
-				/* no action */
-			case BruStage_Empty:
-				sesh.BruTab.Modal = BruModal_BrewWhat
-				sesh.BruTab.SelectedBruIdx = brewIdx
-			}
-		}()
-
-		func() {
-			var recipeIdx int = 0
-			n, err := fmt.Sscanf(path, "/brewrecipe%d", &recipeIdx)
-			if n == 0 || err != nil {
-				return
-			}
-
-			if recipeIdx >= int(BruRecipe_COUNT) {
-				return
-			}
-
-			recipe := BruRecipe(recipeIdx)
-			in, inCount, inTime := recipe.In()
-			if sesh.TakeItems(in, inCount) {
-				sesh.Bru[sesh.BruTab.SelectedBruIdx] = Bru{
-					Recipe: recipe,
-					Done:   time.Now().Add(inTime),
-				}
-				sesh.BruTab.Modal = BruModal_None
-			}
-		}()
-
-		topBars()
-		sesh.BrewingContent(rcx)
-	}
-
-	if len(sesh.Trades) > 0 {
-
-		trade := sesh.Trades[0]
-
-		for _, t := range append(append([]Tradeable{}, trade.YouGive...), trade.YouTake...) {
-			if t.QuantityKind == TradeQuantityKind_All {
-				t.Quantity = max(1, sesh.Inv[t.Item])
-			}
-		}
-
-		if time.Now().After(trade.StartsAt) && time.Now().Before(trade.EndsAt) {
-			sesh.TradeOfferModal(rcx)
-		} else {
-			rcx.refreshWhen(trade.StartsAt)
-		}
+		rcx.html += `</div>`
 	}
 
 	doc := fmt.Sprintf(`
